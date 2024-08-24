@@ -1,2 +1,2 @@
 # codeape
-Breeze through the code jungle
+Breeze through the jungle of code
