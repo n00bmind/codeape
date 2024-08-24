@@ -1,0 +1,14 @@
+*~
+.*.sw?
+*.exe
+*.obj
+*.lib
+*.dll
+*.elf
+*.a
+*.so
+*.prx
+*.pdb
+*.sym
+*.map
+bin/
