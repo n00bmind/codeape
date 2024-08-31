@@ -1,12 +1,10 @@
-#if OS == .WINDOWS
-    Windows :: #import "Windows";
-
-globalMainWindow: Window_Type;
-
-image_test: Simp.Texture;
+Simp  :: #import "Simp";
 
 main :: ()
 {
+    print( "Working directory is '%'\n", get_working_directory() );
+    binPath := path_strip_filename( get_path_of_running_executable() );
+
     #if OS == .WINDOWS
     {
         Windows.SetProcessDPIAware();
@@ -16,40 +14,59 @@ main :: ()
 
     WANTED_MSAA :: 8;
     // On Linux, we need to pass the MSAA value to create_window
-    globalMainWindow = create_window( 1920, 1080, "A Window", wanted_msaa = WANTED_MSAA );
+    mainWindow := create_window( 1920, 1080, "A Window", wanted_msaa = WANTED_MSAA );
 
     // On other operating systems, the MSAA value needs to be passed to *_create_context, so we
     // need to have an extra step here if you want MSAA.
-    msaa := Simp.prepare_window( globalMainWindow, wanted_msaa = WANTED_MSAA );
+    msaa := Simp.prepare_window( mainWindow, wanted_msaa = WANTED_MSAA );
     log( "Wanted MSAA: %\nChosen MSAA: %", WANTED_MSAA, msaa );
 
+    renderState: RenderState;
     // Actual render size in pixels can be different from the window dimensions we specified above (for example on high-resolution displays on macOS/iOS).
-    renderWidth, renderHeight := Simp.get_render_dimensions( globalMainWindow );
+    renderState.renderWidth, renderState.renderHeight = Simp.get_render_dimensions( mainWindow );
 
-    Simp.set_render_target( globalMainWindow, .LEFT_HANDED );
+    Simp.set_render_target( mainWindow, .LEFT_HANDED );
 
-    InitFonts(  renderHeight  );
-    success := Simp.texture_load_from_file( *image_test, "data/image_test.jpg" );
+    InitFonts( *renderState, renderState.renderHeight  );
+    success := Simp.texture_load_from_file( *globalTestImage, "data/image_test.jpg" );
     assert(success);
+
+    app: App;
+    appDLLName := sprint( "%.dll", APP_DLL_NAME );
+    appDLLPath := join( binPath, appDLLName );
+
 
     quit := false;
     while !quit
     {
+        // Check whether we need to load app entry points from the DLL
+        modtime, size, modtimeOk := file_modtime_and_size( appDLLPath );
+        if modtimeOk && modtime > app.lastModtime
+        {
+            if LoadAppCode( *app, binPath, appDLLName )
+                app.lastModtime = modtime;
+        }
+        if !app.updateAndRender
+        {
+            print( "FATAL :: No app to run!\n" );
+            exit( 1 );
+        }
+
         Input.update_window_events();
 
         for Input.get_window_resizes()
         {
             Simp.update_window( it.window );  // Simp will do nothing if it doesn't care about this window.
 
-            if it.window == globalMainWindow
+            if it.window == mainWindow
             {
-                should_reinit := (it.width != renderWidth) || (it.height != renderHeight);
+                should_reinit := (it.width != renderState.renderWidth) || (it.height != renderState.renderHeight);
 
-                renderWidth  = it.width;
-                renderHeight = it.height;
+                renderState.renderWidth  = it.width;
+                renderState.renderHeight = it.height;
 
                 if should_reinit
-                    InitFonts( renderHeight );  // Resize the font for the new window size.
+                    InitFonts( *renderState, renderState.renderHeight );  // Resize the font for the new window size.
             }
         }
 
@@ -66,141 +83,101 @@ main :: ()
             }
         }
 
-        DrawOneFrame( renderWidth, renderHeight );
-        DrawDebugCounters( renderWidth, renderHeight );
+        app.updateAndRender( renderState );
 
-        Simp.swap_buffers(globalMainWindow);
+        Simp.swap_buffers(mainWindow);
 
         // sleep_milliseconds(10);
         reset_temporary_storage();
     }
 }
 
-DrawOneFrame :: ( renderWidth: s32, renderHeight: s32 )
-{
-    Simp.clear_render_target(.15, .15, .2, 1);
 
-    Simp.set_shader_for_color();
+#scope_file
 
-    time := seconds_since_init();
+#if OS == .WINDOWS
+    Windows :: #import "Windows";
 
-    // This is our own code to set up a rotating square:
-    {
-        b := cast(float)renderHeight / 10;
-        p: Vector2;
-        p.x = cast(float)(renderWidth  / 2);
-        p.y = cast(float)(renderHeight / 2);
-
-        theta := cast(float) fmod_cycling(time, TAU);
-
-        ct := cos(theta);
-        st := sin(theta);
-
-        w := Vector2.{b*ct, b*st};
-        h := Vector2.{b*st, -b*ct};
-
-        p0 := p - w - h;
-        p1 := p + w - h;
-        p2 := p + w + h;
-        p3 := p - w + h;
-
-        a :: 1.0;
-        c0 := Vector4.{1, 0, 0, a};
-        c1 := Vector4.{0, 1, 0, a};
-        c2 := Vector4.{0, 0, 1, a};
-        c3 := Vector4.{1, 1, 1, a};
-
-        Simp.immediate_quad(p0, p1, p2, p3, c0, c1, c2, c3);
-    }
-
-    // Draw some text.
-    {
-        // Do a bunch of wacky math to figure out the text color.
-        theta := cast(float) fmod_cycling(time*3, TAU);
-
-        color: Vector4;
-        color.x = cos(theta)*.5+.5;
-        Clamp(*color.x, 0, 1);
-        color.y = 1;
-        color.z = sin(theta)*-.5+.5;
-        Clamp(*color.z, 0, 1);
-        color.w = 1;
-
-        // Now, to draw the text:
-        text := "Simp!";
-
-        // We could just call Simp.draw_text to draw text! But we want to know the width
-        // so that we can center the text, and to find the width, we have to do all the
-        // text layout. So it makes sense just to draw the prepared text after that,
-        // so there's a special routine, "draw_prepared_text", that draws the thing
-        // you just prepared and got the width of.
-
-        text_width := Simp.prepare_text(globalDefaultFont, text);
-
-        text_x := (renderWidth - text_width) / 2;
-        text_y := renderHeight/2 + globalDefaultFont.character_height/4;
-
-        Simp.draw_prepared_text(globalDefaultFont, text_x, text_y, color);
-    }
-
-
-    if image_test.width && image_test.height
-    {
-        // Draw the texture test, to make sure
-        // it comes out right-side-up.
-
-        Simp.set_shader_for_images(*image_test);
-        Simp.immediate_begin();
-
-        w := renderHeight/8.0;
-        y0 := cast(float) renderHeight;
-
-        Simp.immediate_quad(.{0, y0-w}, .{w, y0-w}, .{w, y0}, .{0, y0});
-        Simp.immediate_flush();
-    }
-}
-
-
-// TODO Non-release
-DrawDebugCounters :: ( renderWidth: s32, renderHeight: s32 )
-{
-    globalFrameCounter += 1;
-
-    now := seconds_since_init();
-    if now > globalLastCounterUpdateTimestamp + 0.5
-    {
-        elapsedSecs := (now - globalLastCounterUpdateTimestamp);
-        avgPerFrame := elapsedSecs / globalFrameCounter;
-
-        globalFpsText = sprint( "% fps (% ms.)",
-            formatFloat( 1 / avgPerFrame, -1, 2 ), formatFloat( avgPerFrame * 1000, -1, 3 ) );
-
-        globalLastCounterUpdateTimestamp = now;
-        globalFrameCounter = 0;
-    }
-
-    Simp.draw_text( globalMonoSmallFont, 25, 25, globalFpsText );
-}
-
-InitFonts :: ( renderHeight: s32 )
-{
-    globalDefaultFont = Simp.get_font_at_size( ".", "data/fonts/OpenSans-BoldItalic.ttf", renderHeight / 24 );
-    assert(globalDefaultFont != null);
-    globalMonoSmallFont = Simp.get_font_at_size( ".", "data/fonts/SourceCodePro-Regular.ttf", renderHeight / 90 );
-    assert(globalDefaultFont != null);
-}
-
-globalDefaultFont: *Simp.Dynamic_Font;
-globalMonoSmallFont: *Simp.Dynamic_Font;
-// TODO Group in DebugCounters
-globalFrameCounter := 0;
-globalLastCounterUpdateTimestamp: float64 = 0;
-globalFpsText: string;
-
-Simp  :: #import "Simp";
 Input :: #import "Input";
 
+#import "System";
+#import "File_Utilities";
 #import "Window_Creation";
-
+#import "String";
 #import "Basic";
-#import "Math";
+
+#load "interface.jai";
+
+
+App :: struct
+{
+    handle:             *void;
+    lastModtime :       Apollo_Time;
+    updateAndRender:    ( RenderState ) -> (quit: bool);
+}
+
+APP_DLL_NAME :: "app";
+
+globalTestImage: Simp.Texture;
+
+
+InitFonts :: ( renderState: *RenderState, renderHeight: s32 )
+{
+    renderState.defaultFont = Simp.get_font_at_size( ".", "data/fonts/OpenSans-BoldItalic.ttf", renderHeight / 24 );
+    assert(renderState.defaultFont != null);
+    renderState.monoSmallFont = Simp.get_font_at_size( ".", "data/fonts/SourceCodePro-Regular.ttf", renderHeight / 90 );
+    assert(renderState.monoSmallFont != null);
+}
+
+
+tempDLLOrdinal := 0;
+
+// TODO Move platform-specific bits to platform.jai
+LoadAppCode :: ( app: *App, binPath: string, filename: string ) -> bool
+{
+    tempSrcPath := join( binPath, filename );
+    // Make a copy of the DLL first so we don't lock it when loading it
+    tempDLLName := tprint( "%.temp.%.dll", APP_DLL_NAME, tempDLLOrdinal );
+    // The docs explicitly mention using '\', although it appears to work with '/' too..
+    tempDLLPath := join( binPath, tempDLLName );
+
+    print( "Trying to load app code from '%'..\n", tempDLLPath );
+
+    if copy_file( tempSrcPath, tempDLLPath, silent = true )
+    {
+        oldAppHandle: Windows.HMODULE;
+        if app.handle
+            oldAppHandle = app.handle;
+
+        app.handle = Windows.LoadLibraryA( tempDLLPath.data );
+        if app.handle
+        {
+            loadedOk := true;
+
+            app.updateAndRender = Windows.GetProcAddress( app.handle, "UpdateAndRender" );
+            if( app.updateAndRender == null )
+            {
+                log_error( "Couldn't find function 'UpdateAndRender'" );
+                loadedOk = false;
+            }
+
+            if( loadedOk )
+            {
+                Windows.FreeLibrary( oldAppHandle );
+                tempDLLOrdinal = 1 - tempDLLOrdinal;
+
+                print( "App code loaded OK\n" );
+                // loadNoticeShown = false;
+                return true;
+            }
+        }
+        else
+        {
+            error, desc := get_error_value_and_string();
+            log_error( "App code loading FAILED (%)!\n", desc );
+        }
+    }
+
+    return false;
+}
+
