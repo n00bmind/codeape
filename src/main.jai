@@ -51,13 +51,12 @@ main :: ()
 
     io := ImGui.GetIO();
 
-    show_demo_window := true;
-
     app: App;
     appDLLName := sprint( "%.dll", APP_DLL_NAME );
     appDLLPath := join( binPath, appDLLName );
 
     appMemory: AppMemory;
+    appMemory.binPath = binPath;
     appMemory.imGuiContext = imgui_context;
 
     renderState: RenderState;
@@ -94,12 +93,6 @@ main :: ()
         // Start the frame. This call will update the io.WantCaptureMouse, io.WantCaptureKeyboard flag that you can use to dispatch inputs (or not) to your application.
         ImGui.NewFrame();
 
-        // 3. Show the ImGui demo window. Most of the sample code is in ImGui.ShowDemoWindow().
-        if show_demo_window {
-            ImGui.SetNextWindowPos(.{650, 20}, ImGui.Cond.FirstUseEver, .{0,0}); // Normally user code doesn't need/want to call this because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
-            ImGui.ShowDemoWindow(*show_demo_window);
-        }
-
         if ImGui.GetMouseCursor() == {
             case .Arrow;         SDL_SetCursor(cursor_arrow);
             case .TextInput;     SDL_SetCursor(cursor_text_input);
@@ -110,7 +103,8 @@ main :: ()
             case .ResizeNWSE;    SDL_SetCursor(cursor_resize_nwse);
         }
 
-        app.updateAndRender( appMemory, renderState );
+        if !app.updateAndRender( appMemory, renderState )
+            quit = true;
 
         // Rendering
         ImGui.Render();
@@ -137,7 +131,6 @@ main :: ()
 
 #import "System";
 #import "File_Utilities";
-// #import "Window_Creation";
 #import "String";
 // #import "Basic";
 

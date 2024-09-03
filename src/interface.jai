@@ -1,6 +1,7 @@
 
 AppMemory :: struct
 {
+    binPath: string;
     imGuiContext: *ImGui.ImGuiContext;
 }
 

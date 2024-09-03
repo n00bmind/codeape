@@ -1,7 +1,9 @@
 ImGui :: #import "ImGui";
 
-f :float = 0.0;
-clear_color := Vector4.{0.45, 0.55, 0.60, 1.00};
+// NOTE Check "Program_Print" for tips
+
+// f :float = 0.0;
+
 
 // TODO Make an @implements(UpdateAndRenderFunc) note that's parsed by the metaprogram which will then
 // #assert( type_of(UpdateAndRender) == UpdateAndRenderFunc );
@@ -12,7 +14,7 @@ UpdateAndRender :: ( appMemory: AppMemory, renderState: RenderState ) -> bool
     ImGui.SetCurrentContext( appMemory.imGuiContext );
     io := ImGui.GetIO();
 
-    #if true
+    #if 0
     {
         ImGui.Text("Hello, world!");                                // Some text (you can use a format string too)
         ImGui.Text("Hello, jai-style print: %, %!", 25, "Striiing");                                // Some text (you can use a format string too)
@@ -21,6 +23,22 @@ UpdateAndRender :: ( appMemory: AppMemory, renderState: RenderState ) -> bool
         ImGui.SliderFloat("float", *f, 0.0, 1.0, "%.3f");                   // Edit 1 float as a slider from 0.0f to 1.0f
         ImGui.ColorEdit3("clear color", *clear_color.xyz.component);  // Edit 3 floats as a color
         ImGui.Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0 / io.Framerate, io.Framerate);
+    }
+
+    if ImGui.BeginMainMenuBar()
+    {
+        if ImGui.BeginMenu( "Window" )
+        {
+            ImGui.MenuItem( "ImGui Demo", null, *globalShowDemoWindow );
+            ImGui.EndMenu();
+        }
+
+        ImGui.EndMainMenuBar();
+    }
+
+    if globalShowDemoWindow {
+        ImGui.SetNextWindowPos( .{650, 20}, ImGui.Cond.FirstUseEver, .{0,0} ); // Normally user code doesn't need/want to call this because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
+        ImGui.ShowDemoWindow( *globalShowDemoWindow );
     }
 
 
@@ -37,11 +55,16 @@ UpdateAndRender :: ( appMemory: AppMemory, renderState: RenderState ) -> bool
 #scope_file
 
 #import "Basic";
+#import "String";
+#import "File";
 #import "Math";
 #import "GL";
 
 #load "interface.jai";
 
+
+globalShowDemoWindow := false;
+clear_color := Vector4.{0.45, 0.55, 0.60, 1.00};
 
 
 // TODO Group in DebugCounters

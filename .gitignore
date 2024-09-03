@@ -12,4 +12,5 @@
 *.sym
 *.map
 bin/
+.build/
 /imgui.ini
