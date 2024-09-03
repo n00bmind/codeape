@@ -12,8 +12,7 @@ UpdateAndRender :: ( appMemory: AppMemory, renderState: RenderState ) -> bool
     ImGui.SetCurrentContext( appMemory.imGuiContext );
     io := ImGui.GetIO();
 
-    // 1. Show a simple window
-    // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets automatically appears in a window called "Debug".
+    #if false
     {
         ImGui.Text("Hello, world!");                                // Some text (you can use a format string too)
         ImGui.Text("Hello, jai-style print: %, %!", 25, "Striiing");                                // Some text (you can use a format string too)

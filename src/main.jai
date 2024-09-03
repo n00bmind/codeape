@@ -15,7 +15,7 @@ main :: ()
 
     SDL_Init(SDL_INIT_VIDEO);
 
-    window := SDL_CreateWindow("ImGui SDL2+OpenGL example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
+    window := SDL_CreateWindow("ImGui SDL2+OpenGL example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1920, 1080, SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
 
     // Check that the window was successfully created
     if window == null {
@@ -28,7 +28,7 @@ main :: ()
     log("ImGui v%", to_string(ImGui.GetVersion()));
 
     print( "Working directory is '%'\n", get_working_directory() );
-    binPath := path_strip_filename( get_path_of_running_executable() );
+    binPath := copy_string( path_strip_filename( get_path_of_running_executable() ) );
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, xx SDL_GL_CONTEXT_PROFILE_CORE);
 
@@ -155,6 +155,7 @@ APP_DLL_NAME :: "app";
 
 
 tempDLLOrdinal := 0;
+loadNoticeShown := false;
 
 // TODO Move platform-specific bits to platform.jai
 LoadAppCode :: ( app: *App, binPath: string, filename: string ) -> bool
@@ -165,7 +166,11 @@ LoadAppCode :: ( app: *App, binPath: string, filename: string ) -> bool
     // The docs explicitly mention using '\', although it appears to work with '/' too..
     tempDLLPath := join( binPath, tempDLLName );
 
-    print( "Trying to load app code from '%'..\n", tempDLLPath );
+    if !loadNoticeShown
+    {
+        print( "Trying to load app code from '%'..\n", tempDLLPath );
+        loadNoticeShown = true;
+    }
 
     if copy_file( tempSrcPath, tempDLLPath, silent = true )
     {
@@ -191,7 +196,7 @@ LoadAppCode :: ( app: *App, binPath: string, filename: string ) -> bool
                 tempDLLOrdinal = 1 - tempDLLOrdinal;
 
                 print( "App code loaded OK\n" );
-                // loadNoticeShown = false;
+                loadNoticeShown = false;
                 return true;
             }
         }
