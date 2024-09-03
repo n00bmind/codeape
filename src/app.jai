@@ -12,7 +12,7 @@ UpdateAndRender :: ( appMemory: AppMemory, renderState: RenderState ) -> bool
     ImGui.SetCurrentContext( appMemory.imGuiContext );
     io := ImGui.GetIO();
 
-    #if false
+    #if true
     {
         ImGui.Text("Hello, world!");                                // Some text (you can use a format string too)
         ImGui.Text("Hello, jai-style print: %, %!", 25, "Striiing");                                // Some text (you can use a format string too)
