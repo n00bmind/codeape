@@ -20,7 +20,7 @@ build :: ()
 
     // Application DLL
     {
-        w := compiler_create_workspace();
+        w := compiler_create_workspace( "Inspected target" );
 
         // I assume this must happen before we add files to the compilation?
         compiler_begin_intercept( w );
@@ -51,9 +51,12 @@ build :: ()
     }
 
 }
-// TODO Don't understand the implications of 'stallable' here
 #run build();
 
+
+#scope_file
+
+#load "src/ast.jai";
 
 MessageLoop :: ( w: Workspace )
 {
@@ -68,11 +71,10 @@ MessageLoop :: ( w: Workspace )
             for tc: typechecked.procedure_headers
             {
                 header := tc.expression;
-                // TODO Check this is top level and lives in the inspected source file
-                if header.name == "run"
-                {
-                    //...
-                }
+
+                // TODO 
+                // node := Translate( header );
+                // array_add( *globalNodes, node );
             }
 
         case .PHASE;
@@ -81,18 +83,11 @@ MessageLoop :: ( w: Workspace )
             {
                 case .TYPECHECKED_ALL_WE_CAN;
                     // TODO Do we need to be inside the msg loop for some reason?
-                    Results :: struct
-                    {
+                    results: AST;
 
-                    }
-                    results: Results;
-
-                    // writer: BinaryWriterGM;
-                    // // TODO Reflect() seems to cause a circular dependency between #run build() above and its own internal
-                    // // compile time code generation. Using 'stallable' "fixes" this but I'm worried this is may not be a great solution..
-                    // result := Reflect( *results, *writer );
-                    // print( "Writer result: %\n", result );
-                    // print( "Wrote % bytes\n", writer.buffer.size );
+                    writer: BinaryWriterGM;
+                    result := Reflect( *results, *writer );
+                    log( "Writer result: %. Wrote % bytes\n", result, writer.buffer.size );
             }
 
         case .COMPLETE;

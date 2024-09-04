@@ -37,7 +37,7 @@ build :: ()
 
     // Application DLL
     {
-        w := compiler_create_workspace();
+        w := compiler_create_workspace( "Application library" );
         options := global_options;
         options.output_type = .DYNAMIC_LIBRARY;
         options.output_executable_name = "app";
@@ -59,7 +59,7 @@ build :: ()
 
     // Main executable
     {
-        w := compiler_create_workspace();
+        w := compiler_create_workspace( "Main executable" );
         options := global_options;
         options.output_type = .EXECUTABLE;
         options.output_executable_name = "run";
