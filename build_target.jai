@@ -56,6 +56,7 @@ build :: ()
 
 #scope_file
 
+#import "Hash_Table";
 #load "src/ast.jai";
 
 MessageLoop :: ( w: Workspace )
@@ -68,13 +69,9 @@ MessageLoop :: ( w: Workspace )
         case .TYPECHECKED;
             typechecked := cast(*Message_Typechecked) message;
 
-            for tc: typechecked.procedure_headers
+            for tc: typechecked.procedure_bodies
             {
-                header := tc.expression;
-
-                // TODO 
-                // node := Translate( header );
-                // array_add( *globalNodes, node );
+                CreateOrUpdateAstNodeFor( tc.expression, *globalNodesMap, *globalAstNodes );
             }
 
         case .PHASE;
@@ -82,12 +79,6 @@ MessageLoop :: ( w: Workspace )
             if phase.phase ==
             {
                 case .TYPECHECKED_ALL_WE_CAN;
-                    // TODO Do we need to be inside the msg loop for some reason?
-                    results: AST;
-
-                    writer: BinaryWriterGM;
-                    result := Reflect( *results, *writer );
-                    log( "Writer result: %. Wrote % bytes\n", result, writer.buffer.size );
             }
 
         case .COMPLETE;
@@ -95,4 +86,13 @@ MessageLoop :: ( w: Workspace )
         }
     }
 
+    // TODO Do we need to be inside the msg loop for some reason?
+    results: AST;
+
+    writer: BinaryWriterGM;
+    result := Reflect( *results, *writer );
+    log( "Writer result: %. Wrote % bytes\n", result, writer.buffer.size );
 }
+
+globalAstNodes: [..] *AstNode;
+globalNodesMap: Table(*Code_Node, s32);

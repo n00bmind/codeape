@@ -44,6 +44,7 @@ AstNodeKind :: enum u8
     Unknown;
     ProcedureHeader;
     ProcedureBody;
+    Block;
 }
 
 
@@ -57,6 +58,57 @@ AstProcedureHeader :: struct
 {
     #as using base : AstNode;
 
-    arguments: [] *Code_Declaration;
-    returns:   [] *Code_Declaration;
+    // arguments: [] *Code_Declaration;
+    // returns:   [] *Code_Declaration;
 }
+
+AstProcedureBody :: struct
+{
+    #as using base : AstNode;
+
+    block:       AstRef(.Block);
+    header:      AstRef(.ProcedureHeader);
+}
+
+Translate :: ( codeNode: *Code_Procedure_Body, astNodeOut: **AstNode )
+{
+    if <<astNodeOut == null then
+        <<astNodeOut = New( AstProcedureBody );
+
+    target := cast(*AstProcedureBody) <<astNodeOut;
+}
+
+AstBlock :: struct
+{
+    #as using base : AstNode;
+
+    // TODO Should store the actual kinds here..
+    statements: [] AstRef(.Unknown);
+    parent:     AstRef(.Block);
+    blockType:  u32;
+}
+
+
+CreateOrUpdateAstNodeFor :: ( input: *$T, nodesMap: *Table(*Code_Node, s32),
+    astNodes: *[..] *AstNode )
+{
+    nodePtr: **AstNode = null;
+
+    valuePtr := table_find_pointer( nodesMap, input );
+    if valuePtr
+    {
+        // Update existing target node
+        // TODO Curious if we do ever hit this case?
+        nodePtr = astNodes.data + <<valuePtr;
+    }
+    else
+    {
+        assert( astNodes.count < (1 << 24), "Too many AST nodes" );
+        newIndex := cast(s32) astNodes.count;
+        nodePtr = array_add( astNodes );
+        valuePtr = table_add( nodesMap, input, newIndex );
+    }
+
+    Translate( input, nodePtr );
+}
+
