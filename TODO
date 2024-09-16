@@ -1,0 +1,9 @@
+
+- Check https://discord.com/channels/661732390355337246/1276554163517652992/1277047551446614056 for some tips on hot-reloading
+  issues with Jai / SDL / OpenGL.
+
+- Check repl.jai for an example from someone in the Discord about how to keep the metaprogram running and just restart the msgloop
+  after adding new strings to the program.
+  We could use a similar method to have a single background process that continuously gets the AST from the frontend, compiles it
+  and sends the updated AST back. May or may not be a good idea, but I guess it's worth a try..
+

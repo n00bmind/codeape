@@ -18,13 +18,14 @@
 
 AST :: struct
 {
-    procHeaders:    [..] AstRef(.ProcedureHeader);
-    procBodies:     [..] AstRef(.ProcedureBody);
+    nodes:          [..] AstNodeSlot;
+    // procHeaders:    [..] AstRef(.ProcedureHeader);
+    // procBodies:     [..] AstRef(.ProcedureBody);
     entryPointHeaderIndex:  s32;
     entryPointBodyIndex:    s32;
 }
 
-// This is used to convert back and forth to/from ast node pointers while serilizing
+// This is used to convert back and forth to/from ast node pointers while serializing
 // TODO Pack this in a u32, probably
 AstRefBase :: struct
 {
@@ -54,12 +55,76 @@ AstNode :: struct
     location: Source_Code_Location;
 }
 
+AstNodeSlot :: struct
+{
+    node: *AstNode;
+    kind: AstNodeKind;
+}
+
+CheckInit :: ( slot: *AstNodeSlot, $T: Type, kind: AstNodeKind ) -> *T
+{
+    if slot.node == null
+    {
+        slot.node = New( T );
+        slot.kind = kind;
+    }
+
+    result := cast(*T) slot.node;
+    return result;
+}
+
+// TODO BLOCKER!! Seems like we cannot make this participate in overload resolution, since all Reflect() calls are compiled inside the module scope!
+
+// NOTE Serialize nodes inline, preceded by their kind so we know how to read them back
+// Reflect :: inline ( d: *AstNodeSlot, r: *BinaryReflectorGM ) -> ReflectResult
+Reflect :: ( d: *AstNodeSlot, r: *BinaryWriterGM ) -> ReflectResult
+{
+    // TODO Still, this seems to compile it but not actually call into it!
+    print( "Reflecting ast node %\n", d );
+
+    Reflect( *d.kind, r );
+
+    // TODO How do we collapse this down (& only switch once!)
+    #if r.IsReading
+    {
+        if d.kind ==
+        {
+            case .ProcedureHeader; d.node = New( AstProcedureHeader );
+            case .ProcedureBody;   d.node = New( AstProcedureBody );
+            case .Block;           d.node = New( AstBlock );
+        }
+    }
+    // if d.kind ==
+    // {
+    //     case .ProcedureHeader; return Reflect( cast(*AstProcedureHeader)d.node, r );
+    //     case .ProcedureBody;   return Reflect( cast(*AstProcedureBody)d.node, r );
+    //     case .Block;           return Reflect( cast(*AstBlock)d.node, r );
+    // }
+
+    return .Ok;
+}
+
+// Translate :: ( inputNode: *$T, slotOut: *AstNodeSlot,
+//                 nodesMap: *Table(*Code_Node, s32), astNodes: *Bucket_Array(AstNodeSlot, $N) )
+// {
+//     assert( false, "Not implemented!" );
+// }
+
+
 AstProcedureHeader :: struct
 {
     #as using base : AstNode;
 
     // arguments: [] *Code_Declaration;
     // returns:   [] *Code_Declaration;
+    name: string;
+}
+
+Translate :: ( inputNode: *Code_Procedure_Header, slotOut: *AstNodeSlot,
+                nodesMap: *Table(*Code_Node, s32), astNodes: *Bucket_Array(AstNodeSlot, $N) )
+{
+    target := CheckInit( slotOut, AstProcedureHeader, .ProcedureHeader );
+    // TODO 
 }
 
 AstProcedureBody :: struct
@@ -70,12 +135,12 @@ AstProcedureBody :: struct
     header:      AstRef(.ProcedureHeader);
 }
 
-Translate :: ( codeNode: *Code_Procedure_Body, astNodeOut: **AstNode )
+Translate :: ( inputNode: *Code_Procedure_Body, slotOut: *AstNodeSlot,
+                nodesMap: *Table(*Code_Node, s32), astNodes: *Bucket_Array(AstNodeSlot, $N) )
 {
-    if <<astNodeOut == null then
-        <<astNodeOut = New( AstProcedureBody );
-
-    target := cast(*AstProcedureBody) <<astNodeOut;
+    target := CheckInit( slotOut, AstProcedureBody, .ProcedureBody );
+    target.block = xx CreateOrUpdateAstNodeFor( inputNode.block, nodesMap, astNodes );
+    target.header = xx CreateOrUpdateAstNodeFor( inputNode.header, nodesMap, astNodes );
 }
 
 AstBlock :: struct
@@ -88,27 +153,36 @@ AstBlock :: struct
     blockType:  u32;
 }
 
-
-CreateOrUpdateAstNodeFor :: ( input: *$T, nodesMap: *Table(*Code_Node, s32),
-    astNodes: *[..] *AstNode )
+Translate :: ( inputNode: *Code_Block, slotOut: *AstNodeSlot,
+                nodesMap: *Table(*Code_Node, s32), astNodes: *Bucket_Array(AstNodeSlot, $N) )
 {
-    nodePtr: **AstNode = null;
+    target := CheckInit( slotOut, AstBlock, .Block );
+    // TODO 
+}
 
-    valuePtr := table_find_pointer( nodesMap, input );
-    if valuePtr
+
+CreateOrUpdateAstNodeFor :: ( input: *$T, nodesMap: *Table(*Code_Node, s32), astNodes: *Bucket_Array(AstNodeSlot, $N) ) -> AstRefBase
+{
+    slotPtr: *AstNodeSlot = null;
+
+    indexPtr := table_find_pointer( nodesMap, input );
+    if indexPtr
     {
         // Update existing target node
         // TODO Curious if we do ever hit this case?
-        nodePtr = astNodes.data + <<valuePtr;
+        slotPtr = *(<<astNodes)[ <<indexPtr ];
     }
     else
     {
         assert( astNodes.count < (1 << 24), "Too many AST nodes" );
         newIndex := cast(s32) astNodes.count;
-        nodePtr = array_add( astNodes );
-        valuePtr = table_add( nodesMap, input, newIndex );
+
+        slotPtr = find_and_occupy_empty_slot( astNodes, initialize=true );
+        indexPtr = table_add( nodesMap, input, newIndex );
     }
 
-    Translate( input, nodePtr );
+    Translate( input, slotPtr, nodesMap, astNodes );
+
+    return .{ <<indexPtr, slotPtr.kind };
 }
 
