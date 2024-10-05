@@ -73,14 +73,11 @@ CheckInit :: ( slot: *AstNodeSlot, $T: Type, kind: AstNodeKind ) -> *T
     return result;
 }
 
-// TODO BLOCKER!! Seems like we cannot make this participate in overload resolution, since all Reflect() calls are compiled inside the module scope!
-
 // NOTE Serialize nodes inline, preceded by their kind so we know how to read them back
 // Reflect :: inline ( d: *AstNodeSlot, r: *BinaryReflectorGM ) -> ReflectResult
 Reflect :: ( d: *AstNodeSlot, r: *BinaryWriterGM ) -> ReflectResult
 {
-    // TODO Still, this seems to compile it but not actually call into it!
-    print( "Reflecting ast node %\n", d );
+    // print( "Reflecting ast node %\n", d );
 
     Reflect( *d.kind, r );
 

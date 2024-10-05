@@ -56,7 +56,7 @@ build :: ()
         // TODO In the future this could probably go through shared memory directly
         writer: BinaryWriterGM;
         result := Reflect( *results, *writer );
-        log( "Writer result: %. Wrote % bytes\n", result, writer.buffer.size );
+        log( "\n\nWriter result: %. Wrote % bytes\n", result, writer.buffer.size );
     }
 
     // NOTE NOTE At the moment we don't care about deallocating all the nodes and just let them leak..

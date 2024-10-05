@@ -7,3 +7,5 @@
   We could use a similar method to have a single background process that continuously gets the AST from the frontend, compiles it
   and sends the updated AST back. May or may not be a good idea, but I guess it's worth a try..
 
+- Ofc check Whitebox for some ideas for the "arranger" view for displaying the data flow
+  https://whitebox.systems/
